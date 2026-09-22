@@ -12,7 +12,8 @@
     "dev:server": "node server/dist/server.js",
     "dev:client": "npm --workspace=client run dev",
     "build": "npm --workspace=server run build && npm --workspace=client run build",
-    "test": "node tests/src/a11y.test.mjs && node tests/src/keyboard.test.mjs && node tests/src/api.test.mjs",
+    "test": "node tests/src/html-validator.test.mjs && node tests/src/a11y.test.mjs && node tests/src/keyboard.test.mjs && node tests/src/api.test.mjs",
+    "test:html": "node tests/src/html-validator.test.mjs",
     "test:a11y": "node tests/src/a11y.test.mjs",
     "test:keyboard": "node tests/src/keyboard.test.mjs",
     "test:api": "node tests/src/api.test.mjs"
@@ -25,7 +26,9 @@
     "lighthouse",
     "nyc-311",
     "fullstack",
-    "typescript"
+    "typescript",
+    "html5",
+    "semantic"
   ],
   "author": "RabTech Academy Team",
   "license": "MIT"
