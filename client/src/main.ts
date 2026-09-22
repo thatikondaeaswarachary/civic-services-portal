@@ -5,97 +5,188 @@ import { AccessibleDataTable, TableRowData } from './components/DataTable.js';
 import { EnterpriseForm } from './components/EnterpriseForm.js';
 import { StatusWidget } from './components/StatusWidget.js';
 import { AccessibleModal } from './components/AccessibleModal.js';
+import { AuthModal } from './components/AuthModal.js';
+import { TicketDetailModal } from './components/TicketDetailModal.js';
+import { CatalogView } from './components/CatalogView.js';
 import { fetchServices, CivicService, announceToScreenReader } from './api/client.js';
 import { CivicAppController } from './app.js';
+import { AuthManager } from './auth.js';
 
 class EnterpriseDashboardApp {
   private root: HTMLElement;
   private sidebar: EnterpriseSidebar;
   private header: AccessibleHeader;
   private searchBar: AccessibleSearchBar;
+  private catalogView!: CatalogView;
   private dataTable: AccessibleDataTable;
   private liveFeedApp!: CivicAppController;
   private enterpriseForm: EnterpriseForm;
   private statusWidget: StatusWidget;
   private modal: AccessibleModal;
+  private authModal: AuthModal;
+  private ticketDetailModal: TicketDetailModal;
+  private authManager: AuthManager;
   private services: CivicService[] = [];
-  private incidentRows: TableRowData[] = [
-    {
-      trackingId: 'NYC-2026-1001',
-      category: 'Street Pothole Repair',
-      address: '450 West 33rd St',
-      borough: 'Manhattan',
-      status: 'IN_PROGRESS',
-      urgency: 'HIGH',
-      submittedAt: '2026-09-21T10:15:00Z'
-    },
-    {
-      trackingId: 'NYC-2026-2045',
-      category: 'Street Light Defect',
-      address: 'Grand Army Plaza',
-      borough: 'Brooklyn',
-      status: 'RESOLVED',
-      urgency: 'MEDIUM',
-      submittedAt: '2026-09-20T14:30:00Z'
-    },
-    {
-      trackingId: 'NYC-2026-3109',
-      category: 'Residential Noise Complaint',
-      address: '78-14 Roosevelt Ave',
-      borough: 'Queens',
-      status: 'DISPATCHED',
-      urgency: 'MEDIUM',
-      submittedAt: '2026-09-22T08:45:00Z'
-    },
-    {
-      trackingId: 'NYC-2026-4012',
-      category: 'Inadequate Heat / Hot Water',
-      address: '215 E 164th St',
-      borough: 'Bronx',
-      status: 'SUBMITTED',
-      urgency: 'EMERGENCY',
-      submittedAt: '2026-09-22T09:20:00Z'
-    },
-    {
-      trackingId: 'NYC-2026-4822',
-      category: 'Damaged Tree / Fallen Limb',
-      address: 'Clove Lakes Park',
-      borough: 'Staten Island',
-      status: 'RECEIVED',
-      urgency: 'HIGH',
-      submittedAt: '2026-09-22T11:00:00Z'
-    }
-  ];
+  private readonly LEDGER_STORAGE_KEY = 'civic_tickets_ledger_v2';
+  private incidentRows: TableRowData[] = [];
 
   constructor() {
     this.root = document.getElementById('app') as HTMLElement;
     this.root.className = 'enterprise-shell';
+    this.authManager = AuthManager.getInstance();
+
+    this.loadPersistedLedger();
+
+    this.authModal = new AuthModal();
+    this.ticketDetailModal = new TicketDetailModal(
+      this.handleTicketUpdate.bind(this),
+      this.handleTicketDelete.bind(this)
+    );
 
     this.sidebar = new EnterpriseSidebar(this.handleNavigation.bind(this));
-    this.header = new AccessibleHeader();
-    this.searchBar = new AccessibleSearchBar(this.handleSearch.bind(this));
-    this.dataTable = new AccessibleDataTable(this.incidentRows, (row) => {
-      this.statusWidget.setTrackingId(row.trackingId);
-      const statusEl = document.getElementById('status-section');
-      statusEl?.scrollIntoView({ behavior: 'smooth' });
+    this.header = new AccessibleHeader((trigger) => {
+      this.authModal.open(trigger);
     });
+
+    this.searchBar = new AccessibleSearchBar(this.handleSearch.bind(this));
+
+    this.dataTable = new AccessibleDataTable(
+      this.incidentRows,
+      (row) => {
+        // Open interactive detail inspector modal
+        this.ticketDetailModal.open(row);
+        this.statusWidget.setTrackingId(row.trackingId);
+      },
+      (trackingId) => {
+        this.handleTicketDelete(trackingId);
+      }
+    );
+
     this.enterpriseForm = new EnterpriseForm(this.services, (newTicket) => {
-      this.incidentRows.unshift({
+      const currentUser = this.authManager.getCurrentUser();
+      const createdRow: TableRowData = {
         trackingId: newTicket.trackingId,
         category: newTicket.serviceName || 'Civic Request',
         address: newTicket.address,
         borough: newTicket.borough,
         status: newTicket.status || 'SUBMITTED',
         urgency: 'HIGH',
-        submittedAt: newTicket.createdAt || new Date().toISOString()
-      });
+        submittedAt: newTicket.createdAt || new Date().toISOString(),
+        authorEmail: currentUser.email
+      };
+
+      this.incidentRows.unshift(createdRow);
+      this.persistLedger();
       this.dataTable.updateData(this.incidentRows);
       this.statusWidget.setTrackingId(newTicket.trackingId);
+      announceToScreenReader(`New ticket ${newTicket.trackingId} created and saved.`);
     });
+
     this.statusWidget = new StatusWidget();
     this.modal = new AccessibleModal(this.handleModalDispatch.bind(this));
 
     this.init();
+  }
+
+  private loadPersistedLedger(): void {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const raw = window.localStorage.getItem(this.LEDGER_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw) as TableRowData[];
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            this.incidentRows = parsed;
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Unable to load persisted ledger from localStorage:', e);
+    }
+
+    // Default Seed Dataset (NYC Operations)
+    this.incidentRows = [
+      {
+        trackingId: 'NYC-2026-1001',
+        category: 'Street Pothole Repair',
+        address: '450 West 33rd St',
+        borough: 'Manhattan',
+        status: 'IN_PROGRESS',
+        urgency: 'HIGH',
+        submittedAt: '2026-09-21T10:15:00Z',
+        authorEmail: 'elena.rostova@brooklyn.citizen.nyc'
+      },
+      {
+        trackingId: 'NYC-2026-2045',
+        category: 'Street Light Defect',
+        address: 'Grand Army Plaza',
+        borough: 'Brooklyn',
+        status: 'RESOLVED',
+        urgency: 'MEDIUM',
+        submittedAt: '2026-09-20T14:30:00Z',
+        authorEmail: 'marcus.vance@dot.nyc.gov'
+      },
+      {
+        trackingId: 'NYC-2026-3109',
+        category: 'Residential Noise Complaint',
+        address: '78-14 Roosevelt Ave',
+        borough: 'Queens',
+        status: 'DISPATCHED',
+        urgency: 'MEDIUM',
+        submittedAt: '2026-09-22T08:45:00Z',
+        authorEmail: 'elena.rostova@brooklyn.citizen.nyc'
+      },
+      {
+        trackingId: 'NYC-2026-4012',
+        category: 'Inadequate Heat / Hot Water',
+        address: '215 E 164th St',
+        borough: 'Bronx',
+        status: 'SUBMITTED',
+        urgency: 'EMERGENCY',
+        submittedAt: '2026-09-22T09:20:00Z',
+        authorEmail: 'citizen@bronx.nyc'
+      },
+      {
+        trackingId: 'NYC-2026-4822',
+        category: 'Damaged Tree / Fallen Limb',
+        address: 'Clove Lakes Park',
+        borough: 'Staten Island',
+        status: 'RECEIVED',
+        urgency: 'HIGH',
+        submittedAt: '2026-09-22T11:00:00Z',
+        authorEmail: 'citizen@statenisland.nyc'
+      }
+    ];
+
+    this.persistLedger();
+  }
+
+  private persistLedger(): void {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(this.LEDGER_STORAGE_KEY, JSON.stringify(this.incidentRows));
+      }
+    } catch (e) {
+      console.warn('Unable to persist ledger to localStorage:', e);
+    }
+  }
+
+  private handleTicketUpdate(updatedTicket: TableRowData, note?: string): void {
+    const idx = this.incidentRows.findIndex(r => r.trackingId === updatedTicket.trackingId);
+    if (idx !== -1) {
+      this.incidentRows[idx] = { ...updatedTicket };
+      this.persistLedger();
+      this.dataTable.updateData(this.incidentRows);
+      this.statusWidget.setTrackingId(updatedTicket.trackingId);
+      announceToScreenReader(`Ticket ${updatedTicket.trackingId} status updated to ${updatedTicket.status}.`);
+    }
+  }
+
+  private handleTicketDelete(trackingId: string): void {
+    this.incidentRows = this.incidentRows.filter(r => r.trackingId !== trackingId);
+    this.persistLedger();
+    this.dataTable.updateData(this.incidentRows);
+    announceToScreenReader(`Ticket ${trackingId} removed from master ledger.`);
   }
 
   private async init(): Promise<void> {
@@ -146,7 +237,7 @@ class EnterpriseDashboardApp {
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem;">
         <article class="card-surface" style="padding: 1.25rem; margin-bottom: 0;">
           <span style="font-size: 0.75rem; font-weight: 700; color: var(--color-primary-600); text-transform: uppercase;">Active City Tickets</span>
-          <div style="font-size: 1.85rem; font-weight: 800; color: var(--color-primary-900); margin: 0.25rem 0;">1,428</div>
+          <div style="font-size: 1.85rem; font-weight: 800; color: var(--color-primary-900); margin: 0.25rem 0;" id="kpi-ticket-count">${this.incidentRows.length}</div>
           <span style="font-size: 0.75rem; color: #16a34a; font-weight: 600;">↑ 94.2% within SLA</span>
         </article>
 
@@ -171,10 +262,26 @@ class EnterpriseDashboardApp {
     `;
     main.appendChild(kpiSection);
 
-    // Section 2: Accessible Data Table
+    // Section 2: Interactive Service Catalog View
+    this.catalogView = new CatalogView(this.services, (service) => {
+      // Direct action when user clicks "Request This Service" in catalog
+      const formHeading = document.getElementById('enterprise-form-title');
+      formHeading?.scrollIntoView({ behavior: 'smooth' });
+      const select = document.getElementById('field-service-type') as HTMLSelectElement;
+      if (select) {
+        select.value = service.id;
+        select.dispatchEvent(new Event('change'));
+      }
+      const addressInput = document.getElementById('field-address') as HTMLInputElement;
+      addressInput?.focus();
+      announceToScreenReader(`Selected ${service.name}. Fill in incident address to complete claim.`);
+    });
+    main.appendChild(this.catalogView.getElement());
+
+    // Section 3: Accessible Data Table
     main.appendChild(this.dataTable.getElement());
 
-    // Section 3: Live Public REST API Stream (Powered by api.js & app.js)
+    // Section 4: Live Public REST API Stream (Powered by api.js & app.js)
     const liveFeedSection = document.createElement('section');
     liveFeedSection.id = 'live-feed-section';
     liveFeedSection.className = 'card-surface';
@@ -182,7 +289,7 @@ class EnterpriseDashboardApp {
     this.liveFeedApp = new CivicAppController('live-feed-section');
     this.liveFeedApp.init();
 
-    // Section 4: Two-Column Form & Status Tracker
+    // Section 5: Two-Column Form & Status Tracker
     const grid = document.createElement('div');
     grid.className = 'dashboard-grid';
     grid.appendChild(this.enterpriseForm.getElement());
@@ -233,8 +340,10 @@ class EnterpriseDashboardApp {
     `;
     workspace.appendChild(footer);
 
-    // 7. Mount Modal Dialog
+    // 7. Mount Modal Dialogs
     workspace.appendChild(this.modal.getElement());
+    workspace.appendChild(this.authModal.getElement());
+    workspace.appendChild(this.ticketDetailModal.getElement());
 
     this.root.appendChild(workspace);
   }
@@ -248,15 +357,20 @@ class EnterpriseDashboardApp {
 
   private handleModalDispatch(formData: any): void {
     const trackingId = `NYC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-    this.incidentRows.unshift({
+    const currentUser = this.authManager.getCurrentUser();
+    const newRow: TableRowData = {
       trackingId,
       category: 'Expedited Dispatch (' + formData.serviceType + ')',
       address: formData.address,
       borough: 'Manhattan',
       status: 'DISPATCHED',
       urgency: 'EMERGENCY',
-      submittedAt: new Date().toISOString()
-    });
+      submittedAt: new Date().toISOString(),
+      authorEmail: currentUser.email
+    };
+
+    this.incidentRows.unshift(newRow);
+    this.persistLedger();
     this.dataTable.updateData(this.incidentRows);
     this.statusWidget.setTrackingId(trackingId);
     announceToScreenReader(`Expedited ticket ${trackingId} created and dispatched.`);
@@ -266,6 +380,7 @@ class EnterpriseDashboardApp {
     try {
       this.services = await fetchServices();
       this.enterpriseForm.updateServices(this.services);
+      this.catalogView.updateServices(this.services);
     } catch (err) {
       console.warn('Fallback services loaded:', err);
       this.services = [
@@ -273,7 +388,7 @@ class EnterpriseDashboardApp {
           id: 'srv-pothole',
           name: 'Street Pothole Repair',
           category: 'Streets & Sidewalks',
-          description: 'Report road potholes and asphalt defects.',
+          description: 'Report road potholes, crater depressions, and asphalt defects.',
           averageResolutionHours: 48,
           agency: 'DOT',
           urgencyLevel: 'HIGH'
@@ -282,7 +397,7 @@ class EnterpriseDashboardApp {
           id: 'srv-heat',
           name: 'Inadequate Heat or Hot Water',
           category: 'Housing Safety',
-          description: 'Report residential heating violations.',
+          description: 'Report residential heating violations and boiler breakdowns.',
           averageResolutionHours: 12,
           agency: 'HPD',
           urgencyLevel: 'EMERGENCY'
@@ -291,13 +406,32 @@ class EnterpriseDashboardApp {
           id: 'srv-trees',
           name: 'Damaged Tree or Fallen Limb',
           category: 'Parks & Recreation',
-          description: 'Report fallen tree hazards.',
+          description: 'Report fallen tree hazards blocking streets or powerlines.',
           averageResolutionHours: 24,
           agency: 'DPR',
           urgencyLevel: 'HIGH'
+        },
+        {
+          id: 'srv-graffiti',
+          name: 'Public Property Graffiti Removal',
+          category: 'Sanitation & Cleanliness',
+          description: 'Request municipal power-wash removal of unauthorized tagging.',
+          averageResolutionHours: 72,
+          agency: 'DSNY',
+          urgencyLevel: 'LOW'
+        },
+        {
+          id: 'srv-streetlight',
+          name: 'Street Light Defect / Dark Road',
+          category: 'Streets & Sidewalks',
+          description: 'Report extinguished lampposts and defective municipal signals.',
+          averageResolutionHours: 36,
+          agency: 'DOT',
+          urgencyLevel: 'MEDIUM'
         }
       ];
       this.enterpriseForm.updateServices(this.services);
+      this.catalogView.updateServices(this.services);
     }
   }
 
@@ -324,8 +458,10 @@ class EnterpriseDashboardApp {
   }
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => new EnterpriseDashboardApp());
-} else {
-  new EnterpriseDashboardApp();
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => new EnterpriseDashboardApp());
+  } else {
+    new EnterpriseDashboardApp();
+  }
 }
