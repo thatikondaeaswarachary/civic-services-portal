@@ -6,6 +6,7 @@ import { EnterpriseForm } from './components/EnterpriseForm.js';
 import { StatusWidget } from './components/StatusWidget.js';
 import { AccessibleModal } from './components/AccessibleModal.js';
 import { fetchServices, CivicService, announceToScreenReader } from './api/client.js';
+import { CivicAppController } from './app.js';
 
 class EnterpriseDashboardApp {
   private root: HTMLElement;
@@ -13,6 +14,7 @@ class EnterpriseDashboardApp {
   private header: AccessibleHeader;
   private searchBar: AccessibleSearchBar;
   private dataTable: AccessibleDataTable;
+  private liveFeedApp!: CivicAppController;
   private enterpriseForm: EnterpriseForm;
   private statusWidget: StatusWidget;
   private modal: AccessibleModal;
@@ -172,7 +174,15 @@ class EnterpriseDashboardApp {
     // Section 2: Accessible Data Table
     main.appendChild(this.dataTable.getElement());
 
-    // Section 3: Two-Column Form & Status Tracker
+    // Section 3: Live Public REST API Stream (Powered by api.js & app.js)
+    const liveFeedSection = document.createElement('section');
+    liveFeedSection.id = 'live-feed-section';
+    liveFeedSection.className = 'card-surface';
+    main.appendChild(liveFeedSection);
+    this.liveFeedApp = new CivicAppController('live-feed-section');
+    this.liveFeedApp.init();
+
+    // Section 4: Two-Column Form & Status Tracker
     const grid = document.createElement('div');
     grid.className = 'dashboard-grid';
     grid.appendChild(this.enterpriseForm.getElement());

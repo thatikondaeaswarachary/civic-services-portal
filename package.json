@@ -12,7 +12,8 @@
     "dev:server": "node server/dist/server.js",
     "dev:client": "npm --workspace=client run dev",
     "build": "npm --workspace=server run build && npm --workspace=client run build",
-    "test": "node tests/src/responsive-tokens.test.mjs && node tests/src/html-validator.test.mjs && node tests/src/a11y.test.mjs && node tests/src/keyboard.test.mjs && node tests/src/api.test.mjs",
+    "test": "node tests/src/dynamic-api.test.mjs && node tests/src/responsive-tokens.test.mjs && node tests/src/html-validator.test.mjs && node tests/src/a11y.test.mjs && node tests/src/keyboard.test.mjs && node tests/src/api.test.mjs",
+    "test:dynamic": "node tests/src/dynamic-api.test.mjs",
     "test:responsive": "node tests/src/responsive-tokens.test.mjs",
     "test:html": "node tests/src/html-validator.test.mjs",
     "test:a11y": "node tests/src/a11y.test.mjs",
@@ -33,7 +34,10 @@
     "design-tokens",
     "responsive",
     "css-grid",
-    "glassmorphism"
+    "glassmorphism",
+    "dynamic-dom",
+    "rest-api",
+    "localstorage"
   ],
   "author": "RabTech Academy Team",
   "license": "MIT"

@@ -844,3 +844,67 @@ img, svg, video, canvas, audio, iframe, embed, object {
     padding: var(--space-8);
   }
 }
+
+/* ==========================================================================
+   6. Category Tabs, Live Stream Cards & Shimmer Skeletons
+   ========================================================================== */
+.category-tabs-container {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding-bottom: var(--space-2);
+}
+
+.category-tab-btn {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-medium);
+  color: var(--color-text-main);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.category-tab-btn:hover {
+  background: var(--color-bg-surface-subtle);
+  border-color: var(--color-primary-500);
+}
+
+.category-tab-btn.active,
+.category-tab-btn[aria-selected="true"] {
+  background: var(--color-primary-600);
+  color: #ffffff;
+  border-color: var(--color-primary-600);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Shimmer Loading Skeleton Animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-line {
+  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+  border-radius: var(--radius-xs);
+}
+
+[data-theme="dark"] .skeleton-line {
+  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+  background-size: 200% 100%;
+}
+
