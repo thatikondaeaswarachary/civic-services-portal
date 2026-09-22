@@ -1,0 +1,15 @@
+{
+  "name": "civic-tests",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test dist/**/*.test.js || node --test src/**/*.test.mjs",
+    "test:a11y": "node src/a11y.test.mjs",
+    "test:keyboard": "node src/keyboard.test.mjs",
+    "test:api": "node src/api.test.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0"
+  }
+}

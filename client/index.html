@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Accessible Municipal Civic Services Portal for reporting community issues, road repairs, housing conditions, and tracking service tickets in real time." />
+  <meta name="theme-color" content="#002d62" />
+  <title>NYC 311 · Citizen Civic Services Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/styles/tokens.css" />
+  <link rel="stylesheet" href="/src/styles/a11y.css" />
+  <link rel="stylesheet" href="/src/styles/main.css" />
+</head>
+<body>
+  <!-- WEB-001 Remediation: Semantic, keyboard-activatable Skip Navigation Link -->
+  <a href="#main-content" class="skip-link" id="skip-nav-link">Skip to main content</a>
+
+  <!-- ARIA Live Region for Global Screen Reader Announcements -->
+  <div id="global-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Application Shell Mount Target -->
+  <div id="app"></div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

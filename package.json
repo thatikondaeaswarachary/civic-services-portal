@@ -1,0 +1,32 @@
+{
+  "name": "civic-services-portal-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Accessibility baseline audit and re-architected modern civic service monorepo based on NYC 311 reverse engineering",
+  "workspaces": [
+    "client",
+    "server",
+    "tests"
+  ],
+  "scripts": {
+    "dev:server": "node server/dist/server.js",
+    "dev:client": "npm --workspace=client run dev",
+    "build": "npm --workspace=server run build && npm --workspace=client run build",
+    "test": "node tests/src/a11y.test.mjs && node tests/src/keyboard.test.mjs && node tests/src/api.test.mjs",
+    "test:a11y": "node tests/src/a11y.test.mjs",
+    "test:keyboard": "node tests/src/keyboard.test.mjs",
+    "test:api": "node tests/src/api.test.mjs"
+  },
+  "keywords": [
+    "accessibility",
+    "a11y",
+    "wcag",
+    "monorepo",
+    "lighthouse",
+    "nyc-311",
+    "fullstack",
+    "typescript"
+  ],
+  "author": "RabTech Academy Team",
+  "license": "MIT"
+}
